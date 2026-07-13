@@ -1,13 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const cheerio = require('cheerio');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Extraer el shortcode de la URL
+// Extraer el shortcode de la URL de Instagram
 function extraerShortcode(url) {
   const regex = /(?:p|reel|tv)\/([A-Za-z0-9_-]+)/;
   const match = url.match(regex);
@@ -27,63 +26,51 @@ app.post('/api/sortear-link', async (req, res) => {
       return res.status(400).json({ error: 'Formato de URL inválido. Copia el enlace desde Instagram.' });
     }
 
-    // Petición a la vista web pública simulando un navegador móvil
-    const cleanUrl = `https://www.instagram.com/p/${shortcode}/`;
-    
-    const { data: html } = await axios.get(cleanUrl, {
+    // Consulta al endpoint público de InstagramEmbed / GraphQL
+    const apiUrl = `https://www.instagram.com/p/${shortcode}/embed/caption/`;
+
+    const response = await axios.get(apiUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-        'Accept-Language': 'es-ES,es;q=0.9',
-        'Cache-Control': 'no-cache'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
       }
     });
 
-    const $ = cheerio.load(html);
+    const html = response.data;
     let comments = [];
 
-    // Buscar scripts con datos incrustados (SharedData o scripts JSON)
-    $('script[type="application/ld+json"]').each((_, el) => {
-      try {
-        const json = JSON.parse($(el).html());
-        if (json && json.comment) {
-          json.comment.forEach(c => {
-            if (c.text && c.author) {
-              comments.push({
-                username: c.author.alternateName || c.author.name || 'usuario',
-                text: c.text
-              });
-            }
-          });
-        }
-      } catch (e) {
-        // Ignorar scripts que no correspondan
-      }
-    });
+    // Extraer comentarios del HTML embed usando Expresiones Regulares sobre la estructura embebida
+    const commentRegex = /class="CaptionComments-[^"]*">.*?<a class="CaptionUsername"[^>]*>([^<]+)<\/a><span>\s*([^<]+)<\/span>/gs;
+    let match;
 
-    // Método alternativo si el primer scraper no encuentra comentarios estructurados
+    while ((match = commentRegex.exec(html)) !== null) {
+      const username = match[1].trim();
+      const text = match[2].trim();
+      if (username && text) {
+        comments.push({ username, text });
+      }
+    }
+
+    // Respaldos de parseo si es un Reel o post dinámico
     if (comments.length === 0) {
-      const scriptRegex = /_sharedData\s*=\s*({.+?});<\/script>/;
-      const match = html.match(scriptRegex);
-      if (match) {
-        try {
-          const sharedData = JSON.parse(match[1]);
-          const media = sharedData.entry_data?.PostPage?.[0]?.graphql?.shortcode_media;
-          const edges = media?.edge_media_to_parent_comment?.edges || [];
-          comments = edges.map(e => ({
-            username: e.node.owner?.username || 'usuario',
-            text: e.node.text || ''
-          }));
-        } catch (e) {}
+      const altRegex = /"text":"([^"]+)".*?"username":"([^"]+)"/g;
+      let altMatch;
+      while ((altMatch = altRegex.exec(html)) !== null) {
+        comments.push({
+          username: altMatch[2],
+          text: altMatch[1]
+        });
       }
     }
 
     if (comments.length === 0) {
-      return res.status(400).json({ 
-        error: 'No se pudieron extraer los comentarios. Revisa que el post sea de una cuenta PÚBLICA y tenga comentarios.' 
+      return res.status(400).json({
+        error: 'No se encontraron comentarios públicos. Verifica que la publicación sea de una cuenta PÚBLICA y tenga comentarios cargados.'
       });
     }
 
-    // Filtrar por menciones
+    // Filtrar por menciones mínimas (@)
     if (minMentions > 0) {
       comments = comments.filter(c => {
         const mentions = (c.text.match(/@[a-zA-Z0-9_.]+/g) || []).length;
@@ -95,7 +82,7 @@ app.post('/api/sortear-link', async (req, res) => {
       return res.status(400).json({ error: `Ningún comentario cumple con las ${minMentions} menciones requeridas.` });
     }
 
-    // Selección aleatoria de ganadores
+    // Selección aleatoria de ganadores unívocos
     const shuffled = [...comments].sort(() => 0.5 - Math.random());
     const uniqueWinners = [];
     const usedUsers = new Set();
@@ -117,10 +104,10 @@ app.post('/api/sortear-link', async (req, res) => {
   } catch (error) {
     console.error('Error en el servidor:', error.message);
     return res.status(500).json({
-      error: 'Error de conexión con Instagram. Asegúrate de que la cuenta sea pública.'
+      error: 'Error de conexión con Instagram. Verifica el enlace e intenta nuevamente.'
     });
   }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor escuchando en puerto ${PORT}`));
