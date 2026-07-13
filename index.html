@@ -32,9 +32,7 @@
 <div class="container">
   <h1>🎁 Sorteador Gratis de Instagram</h1>
 
-  <button id="btn-login" class="btn">Conectar con Facebook e Instagram</button>
-    <span>Conectar con Facebook e Instagram</span>
-  </button>
+  <button id="btn-login" class="fb-btn">Conectar con Facebook e Instagram</button>
 
   <form id="raffleForm" class="step-disabled">
     <div class="form-group">
@@ -72,10 +70,10 @@
 <script>
   let userAccessToken = '';
 
-  // 1. Inicializar el SDK de Facebook de forma correcta
+  // 1. Inicializar SDK
   window.fbAsyncInit = function() {
     FB.init({
-      appId      :'1468861064994647',
+      appId      : '1468861064994647',
       cookie     : true,
       xfbml      : true,
       version    : 'v19.0'
@@ -83,7 +81,7 @@
     console.log("SDK de Facebook inicializado correctamente.");
   };
 
-  // 2. Cargar el SDK de Facebook
+  // 2. Cargar SDK
   (function(d, s, id){
      var js, fjs = d.getElementsByTagName(s)[0];
      if (d.getElementById(id)) {return;}
@@ -92,14 +90,13 @@
      fjs.parentNode.insertBefore(js, fjs);
    }(document, 'script', 'facebook-jssdk'));
 
-  // 3. Manejo del Login al presionar el botón azul
+  // 3. Login
   document.getElementById('btn-login').addEventListener('click', () => {
-    console.log("Botón presionado, llamando a FB.login...");
-    
     FB.login(function(response) {
       if (response.authResponse) {
         userAccessToken = response.authResponse.accessToken;
-        console.log("Login exitoso. Token obtenido.");
+        document.getElementById('raffleForm').classList.remove('step-disabled');
+        document.getElementById('submitBtn').disabled = false;
         cargarPublicaciones(userAccessToken);
       } else {
         alert('El usuario canceló el inicio de sesión o no autorizó la aplicación.');
@@ -107,9 +104,9 @@
     }, { scope: 'instagram_basic,instagram_manage_comments,pages_show_list,pages_read_engagement' });
   });
 
-  // 4. Obtener publicaciones desde tu servidor de Render
+  // 4. Obtener publicaciones
   async function cargarPublicaciones(token) {
-    const select = document.getElementById('postSelect');
+    const select = document.getElementById('mediaSelect');
     const loader = document.getElementById('loader');
     
     loader.style.display = 'block';
@@ -129,17 +126,17 @@
         select.appendChild(option);
       });
     } catch (err) {
-      alert('Error al conectar con el servidor de Render: ' + err.message);
+      alert('Error al conectar con el servidor: ' + err.message);
     } finally {
       loader.style.display = 'none';
     }
   }
 
-  // 5. Ejecutar el Sorteo
-  document.getElementById('form-sorteo').addEventListener('submit', async (e) => {
+  // 5. Ejecutar Sorteo
+  document.getElementById('raffleForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const mediaId = document.getElementById('postSelect').value;
+    const mediaId = document.getElementById('mediaSelect').value;
     const winnersCount = document.getElementById('winnersCount').value;
     const minMentions = document.getElementById('minMentions').value;
     
