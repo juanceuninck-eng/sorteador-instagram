@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sorteador Gratis — Instagram</title>
+  <style>
+    :root { --primary: #833ab4; --bg: #f4f6f8; --fb: #1877f2; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    h1 { text-align: center; color: var(--primary); margin-bottom: 20px; }
+    
+    .fb-btn { background: var(--fb); color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .fb-btn:hover { opacity: 0.9; }
+
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    
+    button[type="submit"] { width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+    button[type="submit"]:disabled { background: #ccc; cursor: not-allowed; }
+    
+    #loader { display: none; text-align: center; margin: 20px 0; }
+    #results { margin-top: 25px; display: none; }
+    .winner-card { background: #e8f5e9; border: 1px solid #c8e6c9; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+    .error { color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 6px; display: none; margin-top: 15px; }
+    .step-disabled { opacity: 0.5; pointer-events: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🎁 Sorteador Gratis de Instagram</h1>
+
+  <button id="fbLoginBtn" class="fb-btn">
+    <span>Conectar con Facebook e Instagram</span>
+  </button>
+
+  <form id="raffleForm" class="step-disabled">
+    <div class="form-group">
+      <label for="mediaSelect">Selecciona la Publicación / Reel:</label>
+      <select id="mediaSelect" required>
+        <option value="">-- Primero conecta tu cuenta --</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="winnersCount">Cantidad de Ganadores:</label>
+      <input type="number" id="winnersCount" value="1" min="1" max="10">
+    </div>
+
+    <div class="form-group">
+      <label for="minMentions">Menciones Mínimas por Comentario:</label>
+      <input type="number" id="minMentions" value="0" min="0" max="5">
+    </div>
+
+    <button type="submit" id="submitBtn" disabled>¡Realizar Sorteo!</button>
+  </form>
+
+  <div id="loader">
+    <p>⏳ Cargando comentarios y realizando el sorteo...</p>
+  </div>
+
+  <div id="errorBox" class="error"></div>
+
+  <div id="results">
+    <h2>🎉 ¡Ganadores!</h2>
+    <div id="winnersList"></div>
+  </div>
+</div>
+
+<script>
+  let userAccessToken = '';
+
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      :1537569548167162
+      cookie     : true,
+      xfbml      : true,
+      version    : 'v19.0'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/es_LA/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+
+  // Manejo del Login
+  document.getElementById('fbLoginBtn').addEventListener('click', () => {
+    FB.login((response) => {
+      if (response.authResponse) {
+        userAccessToken = response.authResponse.accessToken;
+        document.getElementById('fbLoginBtn').innerText = '✓ Cuenta Conectada';
+        document.getElementById('fbLoginBtn').style.background = '#2e7d32';
+        cargarPublicaciones(userAccessToken);
+      } else {
+        alert('No se otorgaron los permisos necesarios.');
+      }
+    }, {
+      scope: 'instagram_basic,pages_show_list,pages_read_engagement'
+    });
+  });
+
+  // Cargar publicaciones automáticamente
+  function cargarPublicaciones(token) {
+    const select = document.getElementById('mediaSelect');
+    select.innerHTML = '<option value="">Cargando tus publicaciones...</option>';
+
+    fetch(`http://127.0.0.1:3000/api/mis-publicaciones?accessToken=${token}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success || !data.posts.length) {
+          select.innerHTML = '<option value="">No se encontraron publicaciones disponibles</option>';
+          return;
+        }
+
+        select.innerHTML = '<option value="">-- Selecciona una publicación --</option>';
+        data.posts.forEach(post => {
+          const captionText = post.caption ? (post.caption.substring(0, 40) + '...') : 'Publicación sin texto';
+          select.innerHTML += `<option value="${post.id}">${captionText} (${post.comments_count || 0} comentarios)</option>`;
+        });
+
+        document.getElementById('raffleForm').classList.remove('step-disabled');
+        document.getElementById('submitBtn').disabled = false;
+      })
+      .catch(err => {
+        alert('Error al obtener publicaciones: ' + err.message);
+      });
+  }
+
+  // Enviar formulario para sortear
+  document.getElementById('raffleForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const mediaId = document.getElementById('mediaSelect').value;
+    const winnersCount = parseInt(document.getElementById('winnersCount').value);
+    const minMentions = parseInt(document.getElementById('minMentions').value);
+    
+    if (!mediaId) {
+      alert('Por favor selecciona una publicación.');
+      return;
+    }
+
+    const loader = document.getElementById('loader');
+    const results = document.getElementById('results');
+    const errorBox = document.getElementById('errorBox');
+    const winnersList = document.getElementById('winnersList');
+
+    errorBox.style.display = 'none';
+    results.style.display = 'none';
+    loader.style.display = 'block';
+
+    try {
+      const response = await fetch('http://127.0.0.1:3000/api/sortear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaId, accessToken: userAccessToken, winnersCount, minMentions })
+      });
+
+      const data = await response.json();
+      loader.style.display = 'none';
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Ocurrió un error inesperado.');
+      }
+
+      winnersList.innerHTML = '';
+      data.winners.forEach((winner, idx) => {
+        winnersList.innerHTML += `
+          <div class="winner-card">
+            <strong>🏆 Ganador #${idx + 1}:</strong> @${winner.username}<br>
+            <small>💬 "${winner.text}"</small>
+          </div>
+        `;
+      });
+
+      results.style.display = 'block';
+
+    } catch (err) {
+      loader.style.display = 'none';
+      errorBox.textContent = err.message;
+      errorBox.style.display = 'block';
+    }
+  });
+</script>
+
+</body>
+</html>
