@@ -110,7 +110,7 @@
     const select = document.getElementById('mediaSelect');
     select.innerHTML = '<option value="">Cargando tus publicaciones...</option>';
 
-    fetch(`http://127.0.0.1:3000/api/mis-publicaciones?accessToken=${token}`)
+    fetch(`https://sorteador-instagram.onrender.com/api/mis-publicaciones?accessToken=${token}')
       .then(res => res.json())
       .then(data => {
         if (!data.success || !data.posts.length) {
@@ -155,7 +155,7 @@
     loader.style.display = 'block';
 
     try {
-      const response = await fetch('http://127.0.0.1:3000/api/sortear', {
+      const response = await fetch('https://sorteador-instagram.onrender.com/api/sortear', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mediaId, accessToken: userAccessToken, winnersCount, minMentions })
@@ -186,7 +186,6 @@
       errorBox.style.display = 'block';
     }
   });
-</script>
 
 </body>
 </html>
