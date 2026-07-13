@@ -70,10 +70,10 @@
 <script>
   let userAccessToken = '';
 
-  // 1. Inicializar SDK
+  // 1. Inicializar SDK con la App de Negocios
   window.fbAsyncInit = function() {
     FB.init({
-      appId      : '1468861064994647',
+      appId      : '1537569548167162',
       cookie     : true,
       xfbml      : true,
       version    : 'v19.0'
@@ -90,7 +90,7 @@
      fjs.parentNode.insertBefore(js, fjs);
    }(document, 'script', 'facebook-jssdk'));
 
-  // 3. Login corregido con scopes válidos
+  // 3. Login con los permisos reales de Instagram
   document.getElementById('btn-login').addEventListener('click', () => {
     FB.login(function(response) {
       if (response.authResponse) {
@@ -101,9 +101,8 @@
       } else {
         alert('El usuario canceló el inicio de sesión o no autorizó la aplicación.');
       }
-    }, { scope: 'public_profile,email' });
+    }, { scope: 'instagram_basic,instagram_manage_comments,pages_show_list,pages_read_engagement' });
   });
- 
 
   // 4. Obtener publicaciones
   async function cargarPublicaciones(token) {
