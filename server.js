@@ -1,124 +1,100 @@
 const express = require('express');
-const axios = require('axios');
 const cors = require('cors');
-require('dotenv').config();
+const axios = require('axios');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(jsonExpress = express.json());
 
-const PORT = process.env.PORT || 3000;
-const MAX_COMMENTS_LIMIT = 15000;
+// Extraer el código corto (shortcode) de la URL de Instagram
+function extraerShortcode(url) {
+  const regex = /(?:p|reel|tv)\/([A-Za-z0-9_-]+)/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+}
 
-// Obtener publicaciones del usuario logueado
-app.get('/api/mis-publicaciones', async (req, res) => {
-  const { accessToken } = req.query;
-
-  if (!accessToken) {
-    return res.status(400).json({ error: 'Falta el accessToken.' });
-  }
-
+// Ruta principal para realizar el sorteo por URL
+app.post('/api/sortear-link', async (req, res) => {
   try {
-    const accountsRes = await axios.get('https://graph.facebook.com/v19.0/me/accounts', {
-      params: { fields: 'instagram_business_account', access_token: accessToken }
-    });
+    const { postUrl, winnersCount = 1, minMentions = 0 } = req.body;
 
-    const pages = accountsRes.data.data || [];
-    let igAccountId = null;
+    if (!postUrl) {
+      return res.status(400).json({ error: 'Debes proporcionar una URL válida de Instagram.' });
+    }
 
-    for (const page of pages) {
-      if (page.instagram_business_account) {
-        igAccountId = page.instagram_business_account.id;
-        break;
+    const shortcode = extraerShortcode(postUrl);
+    if (!shortcode) {
+      return res.status(400).json({ error: 'La URL proporcionada no tiene un formato válido de Instagram.' });
+    }
+
+    // Consulta de datos públicos vía GraphQL / Endpoint de Instagram
+    const graphqlUrl = `https://www.instagram.com/graphql/query/?doc_id=17991233853018820&variables=${encodeURIComponent(
+      JSON.stringify({ shortcode: shortcode, first: 50 })
+    )}`;
+
+    const response = await axios.get(graphqlUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'es-ES,es;q=0.9',
       }
-    }
-
-    if (!igAccountId) {
-      return res.status(400).json({ error: 'No se encontró una cuenta profesional de Instagram vinculada a tus páginas de Facebook.' });
-    }
-
-    const mediaRes = await axios.get(`https://graph.facebook.com/v19.0/${igAccountId}/media`, {
-      params: { fields: 'id,caption,shortcode,comments_count', access_token: accessToken }
     });
 
-    return res.json({
-      success: true,
-      posts: mediaRes.data.data || []
-    });
-
-  } catch (error) {
-    const apiError = error.response?.data?.error?.message || error.message;
-    return res.status(500).json({ error: 'Error obteniendo publicaciones: ' + apiError });
-  }
-});
-
-// Realizar sorteo
-app.post('/api/sortear', async (req, res) => {
-  let { mediaId, accessToken, winnersCount = 1, minMentions = 0 } = req.body;
-
-  if (!mediaId || !accessToken) {
-    return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
-  }
-
-  try {
-    const mediaRes = await axios.get(`https://graph.facebook.com/v19.0/${mediaId}`, {
-      params: { fields: 'comments_count', access_token: accessToken }
-    });
-
-    const totalComments = mediaRes.data.comments_count || 0;
-
-    if (totalComments > MAX_COMMENTS_LIMIT) {
-      return res.status(400).json({
-        error: 'La publicación supera el límite de ' + MAX_COMMENTS_LIMIT.toLocaleString() + ' comentarios.'
-      });
+    const media = response.data?.data?.xdt_shortcode_media;
+    if (!media) {
+      return res.status(404).json({ error: 'No se pudo obtener la publicación. Asegúrate de que sea una cuenta pública.' });
     }
 
-    let comments = [];
-    let nextUrl = `https://graph.facebook.com/v19.0/${mediaId}/comments?fields=id,username,text,timestamp&limit=100&access_token=${accessToken}`;
+    // Extraer comentarios
+    const commentsEdges = media.edge_media_to_parent_comment?.edges || media.edge_media_to_comment?.edges || [];
+    let comments = commentsEdges.map(edge => ({
+      username: edge.node.owner?.username || 'usuario_anonimo',
+      text: edge.node.text || ''
+    }));
 
-    while (nextUrl) {
-      const response = await axios.get(nextUrl);
-      const data = response.data;
-      if (data.data) comments.push(...data.data);
-      nextUrl = data.paging && data.paging.next ? data.paging.next : null;
+    if (comments.length === 0) {
+      return res.status(400).json({ error: 'No se encontraron comentarios en esta publicación o el post es privado.' });
     }
 
-    let eligibleComments = comments;
+    // Filtrar por menciones mínimas (@)
     if (minMentions > 0) {
-      const mentionRegex = /@[\w._]+/g;
-      eligibleComments = comments.filter(c => {
-        const mentions = c.text ? (c.text.match(mentionRegex) || []).length : 0;
+      comments = comments.filter(c => {
+        const mentions = (c.text.match(/@[a-zA-Z0-9_.]+/g) || []).length;
         return mentions >= minMentions;
       });
     }
 
-    if (eligibleComments.length === 0) {
-      return res.status(400).json({ error: 'No hay comentarios que cumplan con los criterios establecidos.' });
+    if (comments.length === 0) {
+      return res.status(400).json({ error: `Ningún comentario cumple con el mínimo de ${minMentions} mención(es).` });
     }
 
-    const winners = [];
-    const pool = [...eligibleComments];
-    const countToPick = Math.min(winnersCount, pool.length);
+    // Seleccionar ganadores al azar (sin repetir usuario)
+    const shuffled = [...comments].sort(() => 0.5 - Math.random());
+    const uniqueWinners = [];
+    const usedUsernames = new Set();
 
-    for (let i = 0; i < countToPick; i++) {
-      const randomIndex = Math.floor(Math.random() * pool.length);
-      winners.push(pool[randomIndex]);
-      pool.splice(randomIndex, 1);
+    for (const comment of shuffled) {
+      if (!usedUsernames.has(comment.username)) {
+        usedUsernames.add(comment.username);
+        uniqueWinners.push(comment);
+      }
+      if (uniqueWinners.length >= parseInt(winnersCount)) break;
     }
 
     return res.json({
       success: true,
-      totalComments,
-      eligibleCount: eligibleComments.length,
-      winners
+      totalComments: comments.length,
+      winners: uniqueWinners
     });
 
   } catch (error) {
-    const apiError = error.response?.data?.error?.message || error.message;
-    return res.status(500).json({ error: 'Error de Meta API: ' + apiError });
+    console.error('Error procesando sorteo:', error.message);
+    return res.status(500).json({
+      error: 'Error al conectar con Instagram. Verifica que la publicación sea pública e intenta nuevamente.'
+    });
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('Servidor corriendo en puerto ' + PORT);
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
