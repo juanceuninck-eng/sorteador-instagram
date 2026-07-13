@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 //
-const RAPIDAPI_KEY = 3a155d8b74msh3f88aa85e416edap1dd790jsn7c80f3cb3703
+const RAPIDAPI_KEY = '3a155d8b74msh3f88aa85e416edap1dd790jsn7c80f3cb3703';
 
 // Extraer el shortcode o ID de la publicación
 function extraerShortcode(url) {
