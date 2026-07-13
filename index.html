@@ -90,7 +90,7 @@
      fjs.parentNode.insertBefore(js, fjs);
    }(document, 'script', 'facebook-jssdk'));
 
-  // 3. Login
+  // 3. Login corregido con scopes válidos
   document.getElementById('btn-login').addEventListener('click', () => {
     FB.login(function(response) {
       if (response.authResponse) {
@@ -101,8 +101,9 @@
       } else {
         alert('El usuario canceló el inicio de sesión o no autorizó la aplicación.');
       }
-    }, { scope: 'instagram_basic,instagram_manage_comments,pages_show_list,pages_read_engagement' });
+    }, { scope: 'public_profile,email' });
   });
+ 
 
   // 4. Obtener publicaciones
   async function cargarPublicaciones(token) {
