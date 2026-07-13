@@ -1,4 +1,3 @@
-cat << 'EOF' > server.js
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -123,4 +122,3 @@ app.post('/api/sortear', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Servidor corriendo en puerto ' + PORT);
 });
-EOF
