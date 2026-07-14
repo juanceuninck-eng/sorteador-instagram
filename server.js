@@ -1,3 +1,10 @@
+const express = require('express');
+const cors = require('cors');
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
 function parsearComentariosManual(texto) {
   const lineas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const comentarios = lineas.map(linea => {
@@ -16,30 +23,24 @@ function parsearComentariosManual(texto) {
 app.post('/api/sortear-manual', (req, res) => {
   try {
     const { comentariosTexto, winnersCount = 1, minMentions = 0 } = req.body;
-
     if (!comentariosTexto || comentariosTexto.trim().length === 0) {
       return res.status(400).json({ error: 'Debes pegar al menos un comentario.' });
     }
-
     let comments = parsearComentariosManual(comentariosTexto);
-
     if (comments.length === 0) {
       return res.status(400).json({ error: 'No se pudo interpretar ningún comentario.' });
     }
-
-    // Filtrar por menciones (misma lógica que ya tenías)
+    // Filtrar por menciones
     if (minMentions > 0) {
       comments = comments.filter(c => {
         const mentions = (c.text.match(/@[a-zA-Z0-9_.]+/g) || []).length;
         return mentions >= minMentions;
       });
     }
-
     if (comments.length === 0) {
       return res.status(400).json({ error: `Ningún comentario cumple con las ${minMentions} menciones requeridas.` });
     }
-
-    // Selección de ganadores sin repetir usuario (igual que antes)
+    // Selección de ganadores sin repetir usuario
     const shuffled = [...comments].sort(() => 0.5 - Math.random());
     const uniqueWinners = [];
     const usedUsers = new Set();
@@ -50,15 +51,16 @@ app.post('/api/sortear-manual', (req, res) => {
       }
       if (uniqueWinners.length >= parseInt(winnersCount)) break;
     }
-
     return res.json({
       success: true,
       totalComments: comments.length,
       winners: uniqueWinners
     });
-
   } catch (error) {
     console.error('Error en sorteo manual:', error.message);
     return res.status(500).json({ error: 'Ocurrió un error al procesar los comentarios.' });
   }
 });
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
