@@ -1,25 +1,502 @@
-<textarea id="comentarios" rows="10" placeholder="usuario1: comentario aquí&#10;usuario2: otro comentario"></textarea>
-<input id="winnersCount" type="number" value="1" min="1">
-<button onclick="sortear()">Sortear</button>
-<div id="resultado"></div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sorteador Fácil — Instagram, Facebook y TikTok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #1B1035;
+    --bg-soft: #241246;
+    --card: #2A1555;
+    --pink: #FF3E7F;
+    --yellow: #FFD23F;
+    --turquoise: #2FE6D0;
+    --violet: #8C4DFF;
+    --cream: #FFF8F0;
+    --cream-dim: #C9BEE0;
+    --radius: 20px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0;
+    padding:0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(255,62,127,0.18), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(47,230,208,0.15), transparent 45%),
+      var(--bg);
+    color: var(--cream);
+    font-family: 'Nunito', sans-serif;
+    min-height: 100vh;
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns: 240px minmax(0,680px) 240px;
+    justify-content:center;
+    gap:28px;
+    padding:36px 20px 80px;
+    max-width:1280px;
+    margin:0 auto;
+  }
+
+  /* --- Espacios publicitarios --- */
+  .ad-slot{
+    background: repeating-linear-gradient(
+      135deg,
+      var(--bg-soft),
+      var(--bg-soft) 10px,
+      #2c1854 10px,
+      #2c1854 20px
+    );
+    border: 2px dashed rgba(255,248,240,0.25);
+    border-radius: var(--radius);
+    min-height: 600px;
+    position: sticky;
+    top: 24px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color: var(--cream-dim);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    padding: 16px;
+  }
+  .ad-slot span{ opacity:0.7; }
+
+  main{ min-width:0; }
+
+  .brand{
+    text-align:center;
+    margin-bottom: 28px;
+  }
+  .brand .eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background: rgba(255,210,63,0.12);
+    border: 1px solid rgba(255,210,63,0.4);
+    color: var(--yellow);
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-weight:700;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .brand h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size: clamp(32px, 5vw, 48px);
+    margin: 14px 0 6px;
+    line-height:1.05;
+    background: linear-gradient(90deg, var(--pink), var(--yellow) 45%, var(--turquoise) 80%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand p{
+    color: var(--cream-dim);
+    font-size:16px;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  .card{
+    background: var(--card);
+    border: 1px solid rgba(255,248,240,0.08);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: 0 20px 50px -20px rgba(0,0,0,0.6);
+    margin-bottom: 20px;
+  }
+
+  .platform-tabs{
+    display:flex;
+    gap:10px;
+    margin-bottom:22px;
+    flex-wrap: wrap;
+  }
+  .platform-tabs button{
+    flex:1;
+    min-width: 100px;
+    padding:10px 12px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(255,248,240,0.14);
+    background: rgba(255,248,240,0.04);
+    color: var(--cream-dim);
+    font-family:'Nunito',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    transition: transform .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .platform-tabs button.active{
+    color: var(--bg);
+    border-color: transparent;
+    background: linear-gradient(90deg, var(--turquoise), var(--yellow));
+    transform: translateY(-2px);
+  }
+  .platform-tabs button:hover{ transform: translateY(-2px); }
+
+  label{
+    display:block;
+    font-weight:700;
+    font-size:14px;
+    margin: 18px 0 8px;
+    color: var(--cream);
+  }
+  label .hint{
+    font-weight:600;
+    color: var(--cream-dim);
+    font-size:12px;
+    margin-left:6px;
+  }
+
+  textarea, input[type="number"]{
+    width:100%;
+    background: rgba(255,248,240,0.05);
+    border: 1.5px solid rgba(255,248,240,0.14);
+    border-radius: 14px;
+    padding: 14px 16px;
+    color: var(--cream);
+    font-family:'Nunito', sans-serif;
+    font-size:15px;
+    resize: vertical;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  textarea::placeholder{ color: rgba(255,248,240,0.35); }
+  textarea:focus, input[type="number"]:focus{
+    outline: none;
+    border-color: var(--turquoise);
+    background: rgba(255,248,240,0.08);
+  }
+
+  .options-row{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:16px;
+  }
+
+  .sortear-btn{
+    width:100%;
+    margin-top:26px;
+    padding: 18px;
+    border:none;
+    border-radius: 16px;
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    color: var(--bg);
+    background: linear-gradient(90deg, var(--pink), var(--yellow));
+    cursor:pointer;
+    box-shadow: 0 12px 30px -8px rgba(255,62,127,0.55);
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+  .sortear-btn:hover{ transform: translateY(-2px); filter: brightness(1.05); }
+  .sortear-btn:active{ transform: translateY(0); }
+  .sortear-btn:disabled{ opacity:0.6; cursor:not-allowed; transform:none; }
+
+  .status-msg{
+    margin-top:14px;
+    font-size:14px;
+    font-weight:700;
+    text-align:center;
+    color: var(--pink);
+    min-height: 20px;
+  }
+
+  .winner-box{
+    display:none;
+    margin-top: 24px;
+    text-align:center;
+    background: radial-gradient(circle at 50% 0%, rgba(255,210,63,0.18), transparent 60%), rgba(255,248,240,0.04);
+    border: 1.5px solid rgba(255,210,63,0.4);
+    border-radius: var(--radius);
+    padding: 32px 20px;
+  }
+  .winner-box.show{ display:block; animation: fadeIn .4s ease; }
+
+  .trophy{
+    font-size: 64px;
+    display:inline-block;
+    animation: bounceIn .7s cubic-bezier(.34,1.56,.64,1);
+  }
+  .winner-box h2{
+    font-family:'Baloo 2', sans-serif;
+    font-size: 22px;
+    margin: 6px 0 18px;
+    color: var(--yellow);
+  }
+  .winner-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-width: 360px;
+    margin: 0 auto;
+  }
+  .winner-pill{
+    background: linear-gradient(90deg, rgba(255,62,127,0.18), rgba(140,77,255,0.18));
+    border: 1px solid rgba(255,248,240,0.16);
+    border-radius: 999px;
+    padding: 12px 20px;
+    font-weight:800;
+    font-size:17px;
+    color: var(--cream);
+    animation: popIn .45s ease backwards;
+  }
+  .winner-pill:nth-child(1){ animation-delay: .05s; }
+  .winner-pill:nth-child(2){ animation-delay: .15s; }
+  .winner-pill:nth-child(3){ animation-delay: .25s; }
+  .winner-pill:nth-child(4){ animation-delay: .35s; }
+  .winner-pill:nth-child(5){ animation-delay: .45s; }
+  .winner-total{
+    margin-top:16px;
+    font-size:13px;
+    color: var(--cream-dim);
+  }
+
+  @keyframes fadeIn{ from{ opacity:0; transform: translateY(8px);} to{opacity:1; transform:translateY(0);} }
+  @keyframes bounceIn{
+    0%{ transform: scale(0.3) rotate(-15deg); opacity:0; }
+    60%{ transform: scale(1.15) rotate(5deg); opacity:1; }
+    100%{ transform: scale(1) rotate(0deg); }
+  }
+  @keyframes popIn{
+    from{ opacity:0; transform: scale(0.8) translateY(6px); }
+    to{ opacity:1; transform: scale(1) translateY(0); }
+  }
+
+  footer{
+    text-align:center;
+    color: var(--cream-dim);
+    font-size:12px;
+    margin-top:10px;
+  }
+
+  #confetti-canvas{
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  @media (max-width: 1080px){
+    .layout{ grid-template-columns: 1fr; }
+    .ad-slot{ min-height: 90px; position:static; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="confetti-canvas"></canvas>
+
+<div class="layout">
+
+  <aside class="ad-slot" aria-label="Espacio publicitario">
+    <span>Espacio publicitario<br>300 × 600</span>
+  </aside>
+
+  <main>
+    <div class="brand">
+      <span class="eyebrow">🎉 100% Gratis · Sin límites</span>
+      <h1>Sorteador Fácil</h1>
+      <p>Elegí ganadores de tus sorteos de Instagram, Facebook o TikTok en segundos.</p>
+    </div>
+
+    <div class="card">
+      <div class="platform-tabs" role="tablist" aria-label="Plataforma">
+        <button type="button" class="active" data-platform="instagram">📸 Instagram</button>
+        <button type="button" data-platform="facebook">👍 Facebook</button>
+        <button type="button" data-platform="tiktok">🎵 TikTok</button>
+      </div>
+
+      <label for="comentarios">Pegá los comentarios<span class="hint">un comentario por línea, formato usuario: texto</span></label>
+      <textarea id="comentarios" rows="9" placeholder="maria_lopez: Me encanta este sorteo! @juan_perez&#10;carlos.dev: Ya lo compartí 🙌&#10;ana_g: Yo también participo"></textarea>
+
+      <div class="options-row">
+        <div>
+          <label for="winnersCount">Cantidad de ganadores</label>
+          <input id="winnersCount" type="number" value="1" min="1">
+        </div>
+        <div>
+          <label for="minMentions">Menciones mínimas</label>
+          <input id="minMentions" type="number" value="0" min="0">
+        </div>
+      </div>
+
+      <button class="sortear-btn" id="sortearBtn" onclick="sortear()">🎊 Sortear ganador 🎊</button>
+      <div class="status-msg" id="statusMsg"></div>
+
+      <div class="winner-box" id="winnerBox">
+        <div class="trophy">🏆</div>
+        <h2 id="winnerHeading">¡Tenemos ganador!</h2>
+        <div class="winner-list" id="winnerList"></div>
+        <div class="winner-total" id="winnerTotal"></div>
+      </div>
+    </div>
+
+    <footer>Hecho con 💜 para creadores de contenido. Los datos se procesan solo en tu navegador y no se almacenan.</footer>
+  </main>
+
+  <aside class="ad-slot" aria-label="Espacio publicitario">
+    <span>Espacio publicitario<br>300 × 600</span>
+  </aside>
+
+</div>
 
 <script>
-async function sortear() {
-  const comentariosTexto = document.getElementById('comentarios').value;
-  const winnersCount = document.getElementById('winnersCount').value;
-
-  const res = await fetch('https://sorteador-instagram.onrender.com/api/sortear-manual', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ comentariosTexto, winnersCount })
+  document.querySelectorAll('.platform-tabs button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.platform-tabs button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    });
   });
 
-  const data = await res.json();
-  if (data.success) {
-    document.getElementById('resultado').innerText =
-      'Ganadores: ' + data.winners.map(w => w.username).join(', ');
-  } else {
-    document.getElementById('resultado').innerText = 'Error: ' + data.error;
+  const BACKEND_URL = 'https://sorteador-instagram.onrender.com/api/sortear-manual';
+
+  async function sortear(){
+    const comentariosTexto = document.getElementById('comentarios').value.trim();
+    const statusMsg = document.getElementById('statusMsg');
+    const winnerBox = document.getElementById('winnerBox');
+    const btn = document.getElementById('sortearBtn');
+
+    winnerBox.classList.remove('show');
+    statusMsg.textContent = '';
+
+    if(!comentariosTexto){
+      statusMsg.textContent = 'Pegá al menos un comentario para sortear.';
+      return;
+    }
+
+    const winnersCount = document.getElementById('winnersCount').value || 1;
+    const minMentions = document.getElementById('minMentions').value || 0;
+
+    btn.disabled = true;
+    btn.textContent = 'Sorteando... 🎲';
+
+    try{
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comentariosTexto, winnersCount, minMentions })
+      });
+      const data = await res.json();
+
+      if(data.success){
+        mostrarGanadores(data.winners, data.totalComments);
+      } else {
+        statusMsg.textContent = data.error || 'Ocurrió un error al sortear.';
+      }
+    } catch(err){
+      statusMsg.textContent = 'No se pudo conectar con el servidor. Probá de nuevo en unos segundos.';
+    } finally{
+      btn.disabled = false;
+      btn.textContent = '🎊 Sortear ganador 🎊';
+    }
   }
-}
+
+  function mostrarGanadores(winners, total){
+    const winnerList = document.getElementById('winnerList');
+    const winnerTotal = document.getElementById('winnerTotal');
+    const winnerHeading = document.getElementById('winnerHeading');
+    const winnerBox = document.getElementById('winnerBox');
+
+    winnerHeading.textContent = winners.length > 1 ? '¡Tenemos ganadores!' : '¡Tenemos ganador!';
+    winnerList.innerHTML = winners.map(w => `<div class="winner-pill">@${w.username}</div>`).join('');
+    winnerTotal.textContent = `Sorteado entre ${total} comentario${total===1?'':'s'} participante${total===1?'':'s'}.`;
+
+    winnerBox.classList.add('show');
+    winnerBox.scrollIntoView({ behavior:'smooth', block:'center' });
+    lanzarConfeti();
+  }
+
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  function resizeCanvas(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  const COLORS = ['#FF3E7F', '#FFD23F', '#2FE6D0', '#8C4DFF', '#FFF8F0'];
+  let particles = [];
+
+  function crearParticula(originX){
+    return {
+      x: originX,
+      y: -20,
+      w: 6 + Math.random()*6,
+      h: 8 + Math.random()*10,
+      color: COLORS[Math.floor(Math.random()*COLORS.length)],
+      vx: (Math.random()-0.5) * 6,
+      vy: 2 + Math.random()*4,
+      rotation: Math.random()*360,
+      vr: (Math.random()-0.5) * 12,
+      shape: Math.random() > 0.5 ? 'rect' : 'circle'
+    };
+  }
+
+  let animando = false;
+  function lanzarConfeti(){
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(prefersReduced) return;
+
+    const w = window.innerWidth;
+    for(let i=0;i<160;i++){
+      const originX = Math.random() < 0.5
+        ? Math.random()*w*0.25
+        : w*0.75 + Math.random()*w*0.25;
+      particles.push(crearParticula(originX));
+    }
+    if(!animando){
+      animando = true;
+      requestAnimationFrame(animar);
+    }
+  }
+
+  function animar(){
+    ctx.clearRect(0,0,canvas.width, canvas.height);
+    particles.forEach(p=>{
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05;
+      p.rotation += p.vr;
+
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation * Math.PI/180);
+      ctx.fillStyle = p.color;
+      if(p.shape === 'rect'){
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      } else {
+        ctx.beginPath();
+        ctx.arc(0,0, p.w/2, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    particles = particles.filter(p => p.y < canvas.height + 40);
+
+    if(particles.length > 0){
+      requestAnimationFrame(animar);
+    } else {
+      animando = false;
+    }
+  }
 </script>
+
+</body>
+</html>
