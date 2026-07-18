@@ -158,6 +158,34 @@
     margin-left:6px;
   }
 
+  .platform-tip{
+    background: rgba(47,230,208,0.08);
+    border: 1px solid rgba(47,230,208,0.3);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--cream-dim);
+    line-height:1.5;
+  }
+
+  .checkbox-label{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    font-weight:600;
+    font-size:13px;
+    color: var(--cream-dim);
+    margin-top:12px;
+    cursor:pointer;
+  }
+  .checkbox-label input{
+    margin-top:2px;
+    accent-color: var(--turquoise);
+    width:16px;
+    height:16px;
+    flex-shrink:0;
+  }
+
   textarea, input[type="number"]{
     width:100%;
     background: rgba(255,248,240,0.05);
@@ -321,8 +349,15 @@
         <button type="button" data-platform="tiktok">🎵 TikTok</button>
       </div>
 
-      <label for="comentarios">Pegá los comentarios<span class="hint">un comentario por línea, formato usuario: texto</span></label>
+      <div class="platform-tip" id="platformTip"></div>
+
+      <label for="comentarios">Pegá los comentarios<span class="hint" id="formatHint">un comentario por línea, formato usuario: texto</span></label>
       <textarea id="comentarios" rows="9" placeholder="maria_lopez: Me encanta este sorteo! @juan_perez&#10;carlos.dev: Ya lo compartí 🙌&#10;ana_g: Yo también participo"></textarea>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="pegadoDirecto">
+        Pegué los comentarios tal cual los copié de la red social (no en formato usuario: texto)
+      </label>
 
       <div class="options-row">
         <div>
@@ -356,20 +391,64 @@
 </div>
 
 <script>
+  // ---- Info específica por plataforma ----
+  const PLATFORM_INFO = {
+    instagram: {
+      tip: '📸 <strong>Instagram:</strong> abrí la publicación, mantené presionado sobre un comentario para seleccionarlo (o usá el mouse en la versión web), copiá el bloque de comentarios y pegalo abajo. Si lo pegás tal cual, tildá la casilla de "pegado directo".',
+      placeholder: 'maria_lopez\nMe encanta este sorteo! @juan_perez\n2 d\nResponder\n\ncarlos.dev\nYa lo compartí 🙌\n5 h\nResponder'
+    },
+    facebook: {
+      tip: '👍 <strong>Facebook:</strong> los comentarios copiados suelen incluir el nombre, el texto y una línea de "Me gusta · Responder · tiempo". No hace falta que la borres a mano: tildá "pegado directo" y el sistema la filtra sola.',
+      placeholder: 'Maria Lopez\nMe encanta este sorteo!\nMe gusta · Responder · 3 h\n\nCarlos Dev\nYa lo compartí\nMe gusta · Responder · 1 d'
+    },
+    tiktok: {
+      tip: '🎵 <strong>TikTok:</strong> abrí los comentarios del video, seleccioná y copiá el bloque completo. Puede traer likes y "Responder" mezclados — usá "pegado directo" para limpiarlo automáticamente.',
+      placeholder: 'maria_lopez\nMe encanta este sorteo! @juan_perez\n2-7\nResponder\n❤ 12'
+    }
+  };
+
+  let plataformaActual = 'instagram';
+
+  function actualizarPlataforma(nombre){
+    plataformaActual = nombre;
+    const info = PLATFORM_INFO[nombre];
+    document.getElementById('platformTip').innerHTML = info.tip;
+    document.getElementById('comentarios').placeholder = info.placeholder;
+  }
+
   document.querySelectorAll('.platform-tabs button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('.platform-tabs button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
+      actualizarPlataforma(btn.dataset.platform);
     });
   });
+  actualizarPlataforma('instagram'); // estado inicial
+
+  // ---- Limpieza de texto pegado tal cual desde la red social ----
+  function limpiarPegadoDirecto(texto){
+    const JUNK_REGEX = /^(me gusta|like|responder|reply|ver\s+\d*\s*respuestas?|ver\s+todas\s+las\s+respuestas|traducir|see translation|autor|\d+\s*(seg|s|min|m|h|hs|d|sem|semana|semanas|mes|meses|a|año|años)\.?$|❤️?\s*\d*$)$/i;
+
+    const lineasCrudas = texto.split('\n').map(l => l.trim());
+    const lineasUtiles = lineasCrudas.filter(l => l.length > 0 && !JUNK_REGEX.test(l));
+
+    const resultado = [];
+    for (let i = 0; i < lineasUtiles.length; i += 2) {
+      const username = lineasUtiles[i].replace(/^@/, '');
+      const comentario = lineasUtiles[i + 1] || '';
+      resultado.push(`${username}: ${comentario}`);
+    }
+    return resultado.join('\n');
+  }
 
   const BACKEND_URL = 'https://sorteador-instagram.onrender.com/api/sortear-manual';
 
   async function sortear(){
-    const comentariosTexto = document.getElementById('comentarios').value.trim();
+    let comentariosTexto = document.getElementById('comentarios').value.trim();
     const statusMsg = document.getElementById('statusMsg');
     const winnerBox = document.getElementById('winnerBox');
     const btn = document.getElementById('sortearBtn');
+    const pegadoDirecto = document.getElementById('pegadoDirecto').checked;
 
     winnerBox.classList.remove('show');
     statusMsg.textContent = '';
@@ -377,6 +456,14 @@
     if(!comentariosTexto){
       statusMsg.textContent = 'Pegá al menos un comentario para sortear.';
       return;
+    }
+
+    if(pegadoDirecto){
+      comentariosTexto = limpiarPegadoDirecto(comentariosTexto);
+      if(!comentariosTexto){
+        statusMsg.textContent = 'No pudimos interpretar el texto pegado. Probá pegarlo de nuevo o usá el formato usuario: comentario.';
+        return;
+      }
     }
 
     const winnersCount = document.getElementById('winnersCount').value || 1;
